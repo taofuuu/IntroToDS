@@ -7,4 +7,12 @@ Vector Some Move *
 Q4
 
 final
-DigitalWallet
+hashToVector
+hashMaxBucket
+hashLongestFind
+stackOfStack
+listWrongPrev
+heapChildSwap
+countValueInMap
+compressedVector
+digitalWallet
