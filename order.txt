@@ -7,9 +7,6 @@ Vector Some Move *
 Q4
 
 final
-hashToVector
-hashMaxBucket
-hashLongestFind
 stackOfStack
 listWrongPrev
 heapChildSwap
