@@ -79,6 +79,7 @@ problem_cells = driver.find_elements(
 
 testcase_name = None
 problem_number = None
+isProblem = False
 for td in problem_cells:
     strong = td.find_element(By.TAG_NAME, "strong")
     problem_name = problem_name = strong.parent.execute_script(
@@ -86,6 +87,7 @@ for td in problem_cells:
     ).strip().lower().replace(" ", "")
     if problem_name == PROBLEM_TARGET.lower().strip().replace(" ", ""):
         print("Problem found!")
+        isProblem = True
         # extract testcase name
         testcase_name = td.find_element(
             By.CSS_SELECTOR,
@@ -108,21 +110,20 @@ for td in problem_cells:
         file_link = file_elems[0].get_attribute("href") if file_elems else None
         break
 
+if testcase_name:
+    print(f"Testcase name: {testcase_name}")
+else:
+    print("Testcase not found...")
+
+if problem_number:
+    print(f"Problem Num: {problem_number}")
+else:
+    print("Problem num not found")
+
+config["py"]["problem_num"] = problem_number
+config["cpp"]["test_case"] = testcase_name
+
 if file_link:
-    if testcase_name:
-        print(f"Testcase name: {testcase_name}")
-    else:
-        print("Testcase not found...")
-
-    if problem_number:
-        print(f"Problem Num: {problem_number}")
-    else:
-        print("Problem num not found")
-
-    config["py"]["problem_num"] = problem_number
-    config["cpp"]["test_case"] = testcase_name
-
-
 # === 3. DOWNLOAD AND EXTRACT THE FILES ===
     session = requests.Session()
     for cookie in driver.get_cookies():
@@ -138,6 +139,7 @@ if file_link:
 
     if is_zip:
         print("Extracting the zip file...")
+        os.makedirs(PROBLEM_DIR, exist_ok=True)
         try:
             with zipfile.ZipFile(ZIP_PATH, 'r') as z:
                 for file in z.namelist():
@@ -168,9 +170,14 @@ if file_link:
         # Update config and STOP (do not delete the file)
         config["cpp"]["path"] = PROBLEM_PATH + ".cpp"
 
-    # CLEANUP
-    if os.path.exists(ZIP_PATH):  # In case it was moved
+    # CLEANUP ZIP FILE
+    if os.path.exists(ZIP_PATH):
         os.remove(ZIP_PATH)
+
+    # CLEANUP temp_extract folder
+    if os.path.exists("temp_extract"):
+        shutil.rmtree("temp_extract")
+
 
 
     with open(CONFIG_DIR, "w") as fout:
@@ -179,5 +186,15 @@ if file_link:
 
     print("Problem setup done!")
 
+elif isProblem:
+    open(f"{PROBLEM_DIR}.cpp", "w").close()
+    config["cpp"]["path"] = PROBLEM_PATH + ".cpp"
+
+    with open(CONFIG_DIR, "w") as fout:
+        json.dump(config, fout, indent=2)
+    print("New config for this problem have been saved!")
+
+    print("Problem setup done!")
+    
 else:
     print("Problem not found...")
