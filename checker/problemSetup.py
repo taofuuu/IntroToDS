@@ -77,12 +77,15 @@ problem_cells = driver.find_elements(
     'tbody[data-controller="problem-name"] tr td:nth-of-type(2)'
 )
 
+testcase_name = None
+problem_number = None
 for td in problem_cells:
     strong = td.find_element(By.TAG_NAME, "strong")
     problem_name = problem_name = strong.parent.execute_script(
         "return arguments[0].childNodes[0].textContent.trim();", strong
     ).strip().lower().replace(" ", "")
     if problem_name == PROBLEM_TARGET.lower().strip().replace(" ", ""):
+        print("Problem found!")
         # extract testcase name
         testcase_name = td.find_element(
             By.CSS_SELECTOR,
@@ -105,15 +108,22 @@ for td in problem_cells:
         file_link = file_elems[0].get_attribute("href") if file_elems else None
         break
 
-print(f"Testcase name: {testcase_name}")
-print(f"Problem Num: {problem_number}")
+if file_link:
+    if testcase_name:
+        print(f"Testcase name: {testcase_name}")
+    else:
+        print("Testcase not found...")
 
-config["py"]["problem_num"] = problem_number
-config["cpp"]["test_case"] = testcase_name
+    if problem_number:
+        print(f"Problem Num: {problem_number}")
+    else:
+        print("Problem num not found")
+
+    config["py"]["problem_num"] = problem_number
+    config["cpp"]["test_case"] = testcase_name
 
 
 # === 3. DOWNLOAD AND EXTRACT THE FILES ===
-if file_link:
     session = requests.Session()
     for cookie in driver.get_cookies():
         session.cookies.set(cookie['name'], cookie['value'])
@@ -123,34 +133,51 @@ if file_link:
     with open(ZIP_PATH, "wb") as f:
         f.write(r.content)
 
-    print("Extracting the zip file...")
-    os.makedirs(PROBLEM_DIR, exist_ok=True)
-    with zipfile.ZipFile(ZIP_PATH, 'r') as z:
-        for file in z.namelist():
-            # Select only .cpp and .h
-            if file.endswith(".cpp") or file.endswith(".h"):
-                file_type = ".cpp" if file.endswith(".cpp") else ".h"
-                print(f"{file_type} found!")
-                extracted_path = z.extract(file, "temp_extract")
-                
-                base_name = os.path.basename(file)
-                dest_path = os.path.join(PROBLEM_DIR, base_name)
-                
-                print(f"Moving {file_type} file to {dest_path}...")
-                shutil.move(extracted_path, dest_path)
+    # Check if the file is a valid zip
+    is_zip = zipfile.is_zipfile(ZIP_PATH)
+
+    if is_zip:
+        print("Extracting the zip file...")
+        try:
+            with zipfile.ZipFile(ZIP_PATH, 'r') as z:
+                for file in z.namelist():
+                    # Select only .cpp and .h
+                    if file.endswith(".cpp") or file.endswith(".h"):
+                        file_type = ".cpp" if file.endswith(".cpp") else ".h"
+                        print(f"{file_type} found!")
+                        extracted_path = z.extract(file, "temp_extract")
+
+                        base_name = os.path.basename(file)
+                        dest_path = os.path.join(PROBLEM_DIR, base_name)
+                        
+                        print(f"Moving {file_type} file to {dest_path}...")
+                        shutil.move(extracted_path, dest_path)
+
+            config["cpp"]["path"] = PROBLEM_PATH + "/main.cpp"
+        except Exception as e:
+            print(f"Error extracting zip: {e}")
+
+    else:
+        print("File is not a zip — treating it as a .cpp file.")
+        # New file path = parent/probdir.cpp   (no folder created)
+        new_cpp_path = PROBLEM_DIR + ".cpp"
+
+        print(f"Renaming {ZIP_PATH} → {new_cpp_path}")
+        shutil.move(ZIP_PATH, new_cpp_path)
+
+        # Update config and STOP (do not delete the file)
+        config["cpp"]["path"] = PROBLEM_PATH + ".cpp"
 
     # CLEANUP
-    os.remove(ZIP_PATH)
+    if os.path.exists(ZIP_PATH):  # In case it was moved
+        os.remove(ZIP_PATH)
 
-    config["cpp"]["path"] = PROBLEM_PATH + "/main.cpp"
+
+    with open(CONFIG_DIR, "w") as fout:
+        json.dump(config, fout, indent=2)
+    print("New config for this problem have been saved!")
+
+    print("Problem setup done!")
 
 else:
-    open(f"{PROBLEM_DIR}.cpp", "w").close()
-    config["cpp"]["path"] = PROBLEM_PATH + ".cpp"
-
-
-with open(CONFIG_DIR, "w") as fout:
-    json.dump(config, fout, indent=2)
-print("New config for this problem have been saved!")
-
-print("Problem setup done!")
+    print("Problem not found...")
