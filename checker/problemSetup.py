@@ -79,6 +79,7 @@ problem_cells = driver.find_elements(
 
 testcase_name = None
 problem_number = None
+file_link = None
 isProblem = False
 for td in problem_cells:
     strong = td.find_element(By.TAG_NAME, "strong")
